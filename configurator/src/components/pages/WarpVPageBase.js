@@ -1,14 +1,12 @@
 import React, {useEffect} from "react";
-import {Box, Button, Heading, HStack, Image} from "@chakra-ui/react";
+import {Box, Button, Heading, HStack, Image, useToast} from "@chakra-ui/react";
 import {getTLVCodeForDefinitions, translateJsonToM4Macros, translateParametersToJson} from "../translation/Translation";
 import {CoreDetailsComponent} from "./CoreDetailsComponent";
-import {OpenInMakerchipModal} from "../../utils/FetchUtils";
+import {downloadOrCopyFile, openInMakerchip, OpenInMakerchipModal} from "../../utils/FetchUtils";
+import useFetch from "../../utils/useFetch";
 
 export function WarpVPageBase({
                                   programText,
-                                  setProgramText,
-                                  formErrors,
-                                  setFormErrors,
                                   children,
                                   coreJson,
                                   macrosForJson,
@@ -18,14 +16,11 @@ export function WarpVPageBase({
                                   configuratorCustomProgramName,
                                   configuratorGlobalSettings,
                                   sVForJson,
-                                  getSVForTlv,
                                   setSVForJson,
                                   setConfiguratorGlobalSettings,
-                                  setDownloadingCode,
                                   setCoreJson,
                                   makerchipOpening,
                                   openInMakerchipUrl,
-                                  setDisclosureAndUrl,
                                   openInMakerchipDisclosure,
                                   selectedFile,
                                   setSelectedFile,
@@ -34,14 +29,15 @@ export function WarpVPageBase({
                                   setPipelineDefaultDepth,
                                   setUserChangedStages,
                                   pipelineDefaultDepth,
-                                  setMakerchipOpening,
                                   downloadingCode,
-                                  validateForm,
-                                  scrollToDetailsComponent,
-                                  handleDownloadRTLVerilogButtonClicked,
-                                  handleOpenInMakerchipButtonClicked
+                                  setFormErrors,
+                                  formErrors,
+                                  setMakerchipOpening,
+                                  setDownloadingCode,
+                                  setOpenInMakerchipUrl
                               }) {
-
+    const makerchipFetch = useFetch("https://faas.makerchip.com")
+    const toast = useToast()
 
     useEffect(() => {
         if (!coreJson) return
@@ -165,6 +161,110 @@ export function WarpVPageBase({
         }
     }, [configuratorGlobalSettings.generalSettings, configuratorGlobalSettings.settings]);
 
+    function scrollToDetailsComponent() {
+        setSelectedFile("m4")
+        detailsComponentRef?.current?.scrollIntoView()
+    }
+
+    async function getSVForTlv(tlv, callback) {
+        // Extract settings to be applied to sandpiper-saas command-line, not via --iArgs (aka, args for the sandpiper wrapper script).
+        const externSettings = configuratorGlobalSettings.generalSettings.formattingSettings.filter(formattingArg => formattingArg === "--fmtNoSource")
+        const args = `-i test.tlv -o test.sv --m4out out/m4out ${externSettings.join(" ")} --iArgs`
+        const data = await makerchipFetch.post(
+            "/function/sandpiper-faas",
+            {
+                args: args,
+                responseType: "json",
+                sv_url_inc: true,
+                files: {
+                    "test.tlv": tlv
+                }
+            },
+            false,
+        )
+           .catch(err => {
+                toast({
+                    title: "Compilation fetch failed",
+                    status: "error"
+                })
+                console.error(err)
+                return {"out/m4out": "// Compilation failed.", "out/test.sv": "// Compilation failed.", "out/test_gen.sv": "// Compilation failed."}
+            })
+        if (data["out/m4out"]) setTlvForJson(data["out/m4out"].replaceAll("\n\n", "\n").replace("[\\source test.tlv]", "")) // remove some extra spacing by removing extra newlines
+        else toast({
+            title: "Failed compilation",
+            status: "error"
+        })
+        setMacrosForJson(tlv.split("\n"))
+
+        if (data["out/test.sv"]) {
+            const verilog = data["out/test.sv"]
+                .replace("`include \"test_gen.sv\"", "// gen included here\n" + data["out/test_gen.sv"])   // (Due to --inlineGen being forced, this no longer matters.)
+                .split("\n")
+                .filter(line => !line.startsWith("`include \"sp_default.vh\""))
+                .join("\n")
+            callback(verilog)
+        }
+    }
+
+    function validateForm(err) {
+        if (!err) {
+            translateParametersToJson(configuratorGlobalSettings, setConfiguratorGlobalSettings);
+            const json = {
+                general: configuratorGlobalSettings.generalSettings,
+                pipeline: configuratorGlobalSettings.settings
+            };
+            if (JSON.stringify(coreJson) !== JSON.stringify(json)) setCoreJson(json);
+            return true
+        }
+
+        if (!configuratorGlobalSettings.generalSettings.depth && !formErrors.includes("depth")) {
+            setFormErrors([...formErrors, 'depth']);
+        } else {
+            if (formErrors.length !== 0) setFormErrors([]);
+            translateParametersToJson(configuratorGlobalSettings, setConfiguratorGlobalSettings);
+            const json = {
+                general: configuratorGlobalSettings.generalSettings,
+                pipeline: configuratorGlobalSettings.settings
+            };
+            if (JSON.stringify(coreJson) !== JSON.stringify(json)) setCoreJson(json);
+            return true
+        }
+
+        return null;
+    }
+
+    function handleOpenInMakerchipButtonClicked() {
+        if (validateForm(true)) {
+            setMakerchipOpening(true)
+            const macros = translateJsonToM4Macros(coreJson);
+            const tlv = getTLVCodeForDefinitions(macros, configuratorCustomProgramName, programText, configuratorGlobalSettings.generalSettings.isa, configuratorGlobalSettings.generalSettings);
+            openInMakerchip(tlv, setMakerchipOpening, setDisclosureAndUrl)
+        }
+    }
+
+    function handleDownloadRTLVerilogButtonClicked() {
+        if (validateForm(true)) {
+            const json = validateForm(true)
+            if (json) setConfiguratorGlobalSettings({
+                ...configuratorGlobalSettings,
+                coreJson: json
+            })
+            setDownloadingCode(true)
+            const macros = translateJsonToM4Macros(coreJson);
+            const tlv = getTLVCodeForDefinitions(macros, configuratorCustomProgramName, programText, configuratorGlobalSettings.generalSettings.isa, configuratorGlobalSettings.generalSettings);
+            getSVForTlv(tlv, sv => {
+                downloadOrCopyFile(false, 'verilog.sv', sv);
+                setDownloadingCode(false)
+            });
+        }
+    }
+
+    function setDisclosureAndUrl(newUrl) {
+        setOpenInMakerchipUrl(newUrl)
+        openInMakerchipDisclosure.onOpen()
+    }
+
     return <>
         {children}
 
@@ -185,19 +285,15 @@ export function WarpVPageBase({
 
 
         </Box>
-
-        <div ref={detailsComponentRef}>
-            <CoreDetailsComponent generalSettings={configuratorGlobalSettings.generalSettings}
-                                  settings={configuratorGlobalSettings.settings}
-                                  coreJson={coreJson}
-                                  tlvForJson={tlvForJson}
-                                  macrosForJson={macrosForJson}
-                                  sVForJson={sVForJson}
-                                  selectedFile={selectedFile}
-                                  setSelectedFile={setSelectedFile}
-                                  setDiscloureAndUrl={setDisclosureAndUrl}
-            />
-        </div>
+        {/* CoreDetailsComponent used to contain "generalSettings={configuratorGlobalSettings.generalSettings} settings={configuratorGlobalSettings.settings}", but this resulted in "generalSettings="[object Object]" settings="[object Object]"" and a warning from React: "Warning: React does not recognize the `generalSettings` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `generalsettings` instead. If you accidentally passed it from a parent component, remove it from the DOM element." */}
+        <CoreDetailsComponent coreJson={coreJson}
+                              tlvForJson={tlvForJson}
+                              macrosForJson={macrosForJson}
+                              sVForJson={sVForJson}
+                              selectedFile={selectedFile}
+                              setSelectedFile={setSelectedFile}
+                              setDiscloureAndUrl={setDisclosureAndUrl}
+        />
 
         <OpenInMakerchipModal url={openInMakerchipUrl} disclosure={openInMakerchipDisclosure}/>
     </>

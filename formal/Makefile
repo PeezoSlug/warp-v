@@ -2,21 +2,26 @@
 
 SHELL=/bin/bash
 
-export PATH:=$(shell pwd)/env/bin:$(PATH)
+export PATH:=$(shell pwd)/env/bin:$(shell pwd)/env:$(PATH)
+NPROC?=$(shell nproc)
 
-.PHONY: all clean compile verif env riscv-formal
+.PHONY: all clean compile verif env riscv-formal clean_env
 
 
 # Agree to SandPiper ToS.
 tos_agree:
-	yes | sandpiper-saas
+	echo -e "\e[0Ksection_start:`date +%s`:tos-agree[collapsed=true]\r\e[0KAgreeing to sandpiper-saas TOS"
+	yes | sandpiper-saas -h > /dev/null
+	echo -e "\e[0Ksection_end:`date +%s`:tos-agree\r\e[0K"
 
-# Run SandPiper Cloud Edition(TM) (SandPiper(TM) in the cloud for open-source code).
-out/warp-v_formal.sv: warp-v_formal.tlv ../warp-v.tlv
+# Run SandPiper-SaaS(TM).
+out/warp-v_formal.sv: ../warp-v.tlv
 	rm -rf out
 	mkdir out
-	sandpiper-saas -i warp-v_formal.tlv -f ../warp-v.tlv -o warp-v_formal.sv --outdir out --sv_url_inc --iArgs
-	
+	@# Note: Currently "--m5def FORMAL=1" only works as the final args due to https://gitlab.com/rweda/sandpiper-saas/-/issues/2
+	sandpiper-saas -i ../warp-v.tlv -o warp-v_formal.sv --outdir out --sv_url_inc --iArgs --debugSigsGtkwave --debugSigsYosys --m5def FORMAL=1
+	#/home/steve/repos/mono/sandpiper/bin/sandpiper -i ../warp-v.tlv -o warp-v_formal.sv --outdir out --m5out out/warp-v_formal.m5out.tlv --iArgs --debugSigsGtkwave --debugSigsYosys --m5def FORMAL=1
+
 env: env/PASSED
 
 # Use env/PASSED to indicate that the environment has been successfully built.
@@ -33,14 +38,26 @@ riscv-formal/README.md:
 
 compile: out/warp-v_formal.sv
 
-verif: checks.cfg out/warp-v_formal.sv env riscv-formal
-	@# Should use this, but until Clifford accepts pull request, we have a local copy of genchecks.py.
+out/genchecks.py: riscv-formal/checks/genchecks.py
+	@# Claire rejected my pull request to add --basedir option, so we have a local copy of genchecks.py.
+	sed "s/\.\.\/\.\./{os.environ.get\('RISCV_FORMAL_RELATIVE_PATH'\)}/" riscv-formal/checks/genchecks.py > out/genchecks.py
+
+verif: checks.cfg out/warp-v_formal.sv out/genchecks.py env riscv-formal
+	@# Should use this, but until Claire accepts pull request, we make a modified genchecks.py in /out.
 	@#python3 riscv-formal/checks/genchecks.py --basedir riscv-formal
+	echo -e "\e[0Ksection_start:`date +%s`:verif[collapsed=true]\r\e[0KVerification"
+	yosys -V
 	bison --version
-	python3 $(CURDIR)/riscv-formal/checks/genchecks.py checks $(CURDIR)/riscv-formal
-	$(MAKE) -k -C checks -j$$(nproc)
+	RISCV_FORMAL_RELATIVE_PATH=riscv-formal PYTHONPATH='$(CURDIR)/env/share/python3' python3 '$(CURDIR)/out/genchecks.py'
+
+	$(MAKE) -k -C checks -j$(NPROC)
+	echo -e "\e[0Ksection_end:`date +%s`:verif\r\e[0K"
 
 all: verif
 
 clean:
-	rm -rf out
+	rm -rf out checks
+
+clean_env: clean
+	rm -rf env env_build
+	

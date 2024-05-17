@@ -8,7 +8,7 @@ import {ColorModeSwitcher} from '../../ColorModeSwitcher';
 const links = [
     {label: 'Home', href: '/'},
     {label: 'WARP-V Github', href: 'https://github.com/stevehoover/warp-v', target: "_blank"},
-    {label: 'Redwood EDA', href: 'https://redwoodeda.com', target: "_blank"},
+    {label: 'Redwood EDA, LLC', href: 'https://redwoodeda.com', target: "_blank"},
 ];
 
 function MobileNavContent(props) {
@@ -26,6 +26,7 @@ function MobileNavContent(props) {
                 animate={isOpen ? 'enter' : 'exit'}
             >
                 <Stack spacing='0' divider={<StackDivider borderColor='whiteAlpha.200'/>}>
+                    {/* TODO: This results in a warning about <li> within <li>. */}
                     {links.map((link, index) => (
                         <NavItemTransition key={index}>
                             <NavLink.Mobile href={link.href}>{link.label}</NavLink.Mobile>

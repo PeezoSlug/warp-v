@@ -10,17 +10,21 @@ import {
     Text
 } from "@chakra-ui/react";
 
-export function downloadFile(filename, text) {
-    const element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-    element.setAttribute('download', filename);
+export function downloadOrCopyFile(copy, filename, text) {
+    if (copy) {
+        navigator.clipboard.writeText(text);
+    } else {
+        const element = document.createElement('a');
+        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+        element.setAttribute('download', filename);
 
-    element.style.display = 'none';
-    document.body.appendChild(element);
+        element.style.display = 'none';
+        document.body.appendChild(element);
 
-    element.click();
+        element.click();
 
-    document.body.removeChild(element);
+        document.body.removeChild(element);
+    }
 }
 
 export function OpenInMakerchipModal({disclosure, url}) {
@@ -48,7 +52,7 @@ export function openInMakerchip(source, setMakerchipOpening, setDisclosureAndUrl
     const formBody = new URLSearchParams();
     formBody.append("source", source);
     fetch(
-        "https://makerchip.com/project/public",
+        "https://warp-v.makerchip.com/project/public",
         {
             method: 'POST',
             body: formBody,
@@ -60,7 +64,7 @@ export function openInMakerchip(source, setMakerchipOpening, setDisclosureAndUrl
         .then(resp => resp.json())
         .then(json => {
             const url = json.url
-            openInNewTabOrFallBack(`https://makerchip.com${url}`, "_blank", setDisclosureAndUrl)
+            openInNewTabOrFallBack(`https://warp-v.makerchip.com${url}`, "_blank", setDisclosureAndUrl)
             setMakerchipOpening(false)
         })
 }

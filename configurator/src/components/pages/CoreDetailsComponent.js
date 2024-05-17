@@ -1,7 +1,7 @@
 import {Box, Button, Code, Container, Heading, HStack, Icon, Image, Link, Text, Tooltip} from '@chakra-ui/react';
 import {FaLongArrowAltRight} from 'react-icons/all';
 import {useState} from "react";
-import {downloadFile, openInMakerchip} from "../../utils/FetchUtils";
+import {downloadOrCopyFile, openInMakerchip} from "../../utils/FetchUtils";
 import {QuestionOutlineIcon} from "@chakra-ui/icons";
 
 const m4fileName = "your_warpv_core_configuration.m4"
@@ -19,7 +19,6 @@ export function CoreDetailsComponent({
                                          ...rest
                                      }) {
     const [makerchipOpening, setMakerchipOpening] = useState(false)
-
     if (!coreJson || !macrosForJson || !sVForJson) return null;
 
 
@@ -28,9 +27,17 @@ export function CoreDetailsComponent({
     }
 
     function handleDownloadSelectedFileClicked() {
-        if (selectedFile === "m4") downloadFile(m4fileName, macrosForJson.join("\n"))
-        else if (selectedFile === "tlv") downloadFile(tlvFileName, tlvForJson)
-        else if (selectedFile === "rtl") downloadFile(systemVerilogFileName, sVForJson)
+        handleDownloadOrCopySelectedFileClicked(false);
+    }
+
+    function handleCopySelectedFileClicked() {
+        handleDownloadOrCopySelectedFileClicked(true);
+    }
+
+    function handleDownloadOrCopySelectedFileClicked(copy) {
+        if (selectedFile === "m4") downloadOrCopyFile(copy, m4fileName, macrosForJson.join("\n"))
+        else if (selectedFile === "tlv") downloadOrCopyFile(copy, tlvFileName, tlvForJson)
+        else if (selectedFile === "rtl") downloadOrCopyFile(copy, systemVerilogFileName, sVForJson)
     }
 
     function replaceImports(old) {
@@ -43,12 +50,12 @@ export function CoreDetailsComponent({
         else if (selectedFile === "tlv") {
             openInMakerchip(
                 replaceImports(tlvForJson)
-                    .replace("\\TLV_version", "\\m4_TLV_version"),
+                    .replace("\\TLV_version", "\\m5_TLV_version"),
                 setMakerchipOpening,
                 setDiscloureAndUrl
             )
         } else if (selectedFile === "rtl") {
-            const modifiedSVToOpen = `\\m4_TLV_version 1d: tl-x.org
+            const modifiedSVToOpen = `\\m5_TLV_version 1d: tl-x.org
 \\SV
 ` + sVForJson.replaceAll(/`include ".+"\s+\/\/\s+From: "(.+)"/gm, `m4_sv_include_url(['$1']) // Originally: $&`)
             // For the generated SV to be used as source code, we must revert the inclusion of files, so they will be download when compiled.
@@ -86,7 +93,7 @@ export function CoreDetailsComponent({
                     <Image src="tlv-tlvpreview.png" maxW={200} mx="auto"/>
                 </Link>
                 <Tooltip
-                    label="Redwood EDA's SandPiper(TM) SaaS Edition expands your Transaction-Level Verilog code into Verilog.">
+                    label="Redwood EDA, LLC's SandPiper(TM) SaaS Edition expands your Transaction-Level Verilog code into Verilog.">
                     <Container centerContent mx={0} px={0} width={30}>
                         <Icon as={FaLongArrowAltRight} fontSize="30px"/>
                         <QuestionOutlineIcon mx="auto" marginLeft="auto"/>
@@ -114,7 +121,8 @@ export function CoreDetailsComponent({
                 <HStack mb={3}>
                     <Button colorScheme="teal" onClick={handleDownloadSelectedFileClicked}>Download File</Button>
                     <Button colorScheme="blue" onClick={handleOpenInMakerchipClicked} isDisabled={makerchipOpening}
-                            isLoading={makerchipOpening}>Edit in Makerchip as source</Button>
+                            isLoading={makerchipOpening}>Edit in Makerchip as Source</Button>
+                    <Button colorScheme="teal" onClick={handleCopySelectedFileClicked}>Copy Code</Button>
                 </HStack>
 
                 <Code as="pre" borderWidth={3} borderRadius={15} p={2} overflow="auto" w="100vh" maxW="100%">

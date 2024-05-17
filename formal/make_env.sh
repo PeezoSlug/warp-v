@@ -45,20 +45,23 @@ BUILD_DIR=`pwd`
 echo "Build dir: $BUILD_DIR"
 
 # Yosys:
+echo -e "\e[0Ksection_start:`date +%s`:make-env-yosys[collapsed=true]\r\e[0KInstalling Yosys"
+
 check_previous_build "yosys"
 if [ $? -eq 1 ]; then
-  git clone https://github.com/cliffordwolf/yosys.git && \
+  git clone https://github.com/YosysHQ/yosys.git && \
   cd yosys && \
   comment 'Capture the commit ID' && \
   (git rev-parse HEAD > ../../env/yosys_commit_id.txt) && \
-  make config-clang && \
+  make config-gcc && \
   make && \
   echo "pwd of env_build/yosys: $PWD" && \
-  mv yosys* ../../env/bin && \
+  mv yosys* ../../env && \
   mv share/* ../../env/share && \
   touch PASSED
   STATUS[yosys]=$?
 fi
+echo -e "\e[0Ksection_end:`date +%s`:make-env-yosys\r\e[0K"
 
 ## RISCV-Formal:
 #cd "$BUILD_DIR"
@@ -71,24 +74,20 @@ fi
 #STATUS[riscv-formal]=$?
 
 # SymbiYosys:
+echo -e "\e[0Ksection_start:`date +%s`:make-env-symbiyosys[collapsed=true]\r\e[0KInstalling SymbiYosys"
+
 check_previous_build "SymbiYosys"
 if [ $? -eq 1 ]; then
-  git clone https://github.com/cliffordwolf/SymbiYosys.git SymbiYosys && \
+  git clone https://github.com/YosysHQ/sby.git SymbiYosys && \
   cd SymbiYosys && \
   comment 'Capture the commit ID' && \
   (git rev-parse HEAD > ../../env/SymbiYosys_commit_id.txt) && \
   make install PREFIX=../../env && \
-  comment 'Stuff in share/python3 is not in a standard include path. Seems to work in share/yosys, so move it.' && \
-  echo "ls ../../env/share:" && \
-  ls ../../env/share && \
-  echo "ls ../../env/share/python3:" && \
-  ls ../../env/share/python3 && \
-  echo "ls ../../env/share/yosys/python3:" && \
-  ls ../../env/share/yosys/python3 && \
-  mv ../../env/share/python3/* ../../env/share/yosys/python3 && \
   touch PASSED
   STATUS[SymbiYosys]=$?
 fi
+
+echo -e "\e[0Ksection_end:`date +%s`:make-env-symbiyosys\r\e[0K"
 
 ## Z3
 #cd "$BUILD_DIR"
@@ -100,6 +99,8 @@ fi
 ## TODO: install
 
 # Boolector
+echo -e "\e[0Ksection_start:`date +%s`:make-env-boolector[collapsed=true]\r\e[0KInstalling Boolector"
+
 check_previous_build "boolector"
 if [ $? -eq 1 ]; then
   mkdir boolector && \
@@ -112,6 +113,8 @@ if [ $? -eq 1 ]; then
   touch ../PASSED
   STATUS[boolector]=$?
 fi
+
+echo -e "\e[0Ksection_end:`date +%s`:make-env-boolector\r\e[0K"
 
 cd "$BUILD_DIR"
 if (( ${STATUS[yosys]} || ${STATUS[SymbiYosys]} || ${STATUS[boolector]} )); then

@@ -40,6 +40,37 @@ cd warp-v
 ./init
 ```
 
+# Build with Fusesoc
+
+- Install edalize with sandpiper support
+ 
+```git clone https://github.com/shariethernet/my_edalize.git```
+
+``` cd edalize```
+
+```git checkout main```
+
+```pip3 install --user -r dev-requirements.txt```
+
+```pre-commit install```
+
+```pip3 install --user -e .```
+
+- Install fusesoc
+
+```pip install fusesoc```
+
+- Add warpv to fusesoc core library
+
+```fusesoc library add warpv .```
+
+- Build warp-v with Fusesoc (default configuration)
+
+```fusesoc run --target=sandpiper warpv```
+
+Warp-v can be configured according to your requirement by setting the `mxdef:` in `warp-v.core` 
+
+Note: In the the .core files use [] wherever you intend to use (). As Fusesoc parsers donot support (), the [] acts as a place holder and gets replaced by () later on.
 
 # Features
 
@@ -127,21 +158,22 @@ You can find help in the <a href="https://gitter.im/librecores/warp-v" target="_
 A few pointers for exploring WARP-V in Makerchip:
 
   - Learn TL-Verilog and Makerchip first, following tutorials and other resources, at <a href="http://www.makerchip.com/" target="_blank" atom_fix="_">makerchip.com</a>.
+  there are several courses available for building your own RISC-V CPU similar to WARP-V, but less parameterized, available via the menus.
   - This link will <a href="http://www.makerchip.com/sandbox?code_url=https:%2F%2Fraw.githubusercontent.com%2Fstevehoover%2Fwarp-v%2Fmaster%2Fwarp-v.tlv" target="_blank" atom_fix="_">Open the latest WARP-V in Makerchip</a>.
-  - Reverse-engineer the WARP-V design at the TL-Verilog level, not by reading WARP-V source code. Configure WARP-V as you choose, compile, and explore the model in the "Nav-TLV" pane.
-  - You can then correlate this back to the source code by clicking Nav-TLV line numbers. This highlights the corresponding source code line... er... well, this doesn't always work in its current form because of the `m4_indirect` macro. You can work around this by replacing them, e.g `m4+indirect(M4_isa['_decode'])` becomes `m4+riscv_decode()`.
+  - Reverse-engineer the WARP-V design at the TL-Verilog level, not by reading WARP-V source code. Configure WARP-V at [warp-v.org](https://warp-v.org) as you choose, compile, and explore the model in the "Nav-TLV" pane.
+  - You can then correlate this back to the source code by clicking Nav-TLV line numbers. This highlights the corresponding source code line.
 
 
 
 # Contributing
 
-Speak up on the <a href="https://gitter.im/librecores/warp-v" target="_blank" atom_fix="_">LibreCores WARP-V Gitter Chat Room</a> and we'll help you find an appropriate way you can help out.
-
-Keep in mind that WARP-V is a horrible starting point for learning TL-Verilog because of its heavy use of M4. If you are interested in microarchitectural contributions, learn TL-Verilog first at <a href="http://www.makerchip.com/" target="_blank" atom_fix="_">makerchip.com</a>.
+Keep in mind that WARP-V is a horrible starting point for learning TL-Verilog because of its high degree of configurability using [M5](https://github.com/rweda/M5). If you are interested in microarchitectural contributions, learn TL-Verilog first at <a href="http://www.makerchip.com/" target="_blank" atom_fix="_">makerchip.com</a>.
 
 With a clear understanding of where to tread, you can navigate WARP-V and contribute successfully. WARP-V is a library with plenty of room to grow to cover a more complete spectrum of CPU microarchitecture. Be aware, however, that working with CPU microarchitecture means walking in a minefield of patents. Work with the community to define your contributions.
 
 Work in a fork and submit push requests that have passed continuous integration (CI) testing (below). Your work is much more likely to be accepted if it is aligned with the community and doesn't risk patent infringement.
+
+Share your intentions in the [TL-Verilog Slack Workspace](https://join.slack.com/t/tl-verilog-users/shared_invite/zt-4fatipnr-dmDgkbzrCe0ZRLOOVm89gA). We'll help you find an appropriate way you can help out.
 
 
 
@@ -150,7 +182,7 @@ Work in a fork and submit push requests that have passed continuous integration 
 
 WARP-V RISC-V implementations are verified using the <a href="https://github.com/cliffordwolf/riscv-formal" target="_blank" target="_blank" atom_fix="_">riscv-formal</a> open-source formal verification framework. Everything for formal verification is in the `formal` directory. See the <a href="https://github.com/stevehoover/warp-v/tree/master/formal" target="_blank" target="_blank" atom_fix="_">README.md</a> file there.
 
-`formal/Makefile` uses SandPiper(TM) SaaS Edition -- SandPiper running in the cloud as a service. No local SandPiper installation is required (but if the SandPiper SaaS service goes down, the build will fail).
+`formal/Makefile` uses [SandPiper-SaaS](https://pypi.org/project/sandpiper-saas/).
 
 (For other ISAs, <a href="https://upscale.stanford.edu/" target="_blank" target="_blank" atom_fix="_">Upscale</a> might be a good direction for future work.)
 
@@ -160,7 +192,7 @@ RISC-V WARP-V cores have also been [formally verified by Axiomise](https://semiw
 <a name="ci"></a>
 # CI
 
-<a href="https://travis-ci.com/" target="_blank" atom_fix="_">Travis-CI</a> is used for continuous integration testing: <a href="https://travis-ci.com/stevehoover/warp-v" target="_blank" target="_blank" atom_fix="_">WARP-V Travis CI</a>. CI runs formal verification tests.
+<a href="https://travis-ci.com/" target="_blank" atom_fix="_">Travis-CI</a> was used for continuous integration testing: <a href="https://travis-ci.com/stevehoover/warp-v" target="_blank" target="_blank" atom_fix="_">WARP-V Travis CI</a>. CI ran formal verification tests. Due to the introduction of fees, CI has been disabled and currently has not been successfully restored elsewhere. So, prior to merging with the main/master branch, run [formal verification](#formal-verification) locally.
 
 ### CI Environment
 
@@ -181,3 +213,8 @@ TODO: Add implementation data here.
 ## Retiming Experiments
 
 We utilized the pipeline flexibility of TL-Verilog and WARP-V's pipeline parameterization to experiment with Vivado's ability to retime logic optimally. This showed that it is not necessary to precisely partition the CPU pipeline logic among pipeline stages in order to get good quality results. However, when tools must retime logic, runtime can be significantly impacted. Here is [more detail](doc/retiming.md).
+
+
+# Known Hardware Implementations
+
+  - [Open MPW-7, WARP-V 4-Stage](https://platform.efabless.com/projects/1287)
